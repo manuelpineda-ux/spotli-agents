@@ -40,6 +40,7 @@ RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/proto ./proto
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -47,8 +48,8 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nestjs
 
-# Expose port
-EXPOSE 3002
+# Expose ports (HTTP + gRPC)
+EXPOSE 3002 50051
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

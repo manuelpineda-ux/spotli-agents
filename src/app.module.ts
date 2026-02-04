@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './modules/health/health.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { GrpcModule } from './modules/grpc/grpc.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     HealthModule,
     AgentsModule,
     ConversationsModule,
+    GrpcModule,
   ],
 })
 export class AppModule {}

@@ -1,0 +1,214 @@
+syntax = "proto3";
+
+package agents;
+
+// ============================================
+// COMMON MESSAGES
+// ============================================
+
+message Empty {}
+
+message RequestContext {
+  string user_id = 1;
+  string organization_id = 2;
+}
+
+// ============================================
+// AGENT MESSAGES
+// ============================================
+
+message Agent {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  optional string description = 4;
+  string personality = 5;
+  string tone = 6;
+  string language = 7;
+  optional string system_prompt = 8;
+  bool is_active = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message CreateAgentRequest {
+  RequestContext context = 1;
+  string name = 2;
+  optional string description = 3;
+  optional string personality = 4;
+  optional string tone = 5;
+  optional string language = 6;
+  optional string system_prompt = 7;
+}
+
+message UpdateAgentRequest {
+  RequestContext context = 1;
+  string id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional string personality = 5;
+  optional string tone = 6;
+  optional string language = 7;
+  optional string system_prompt = 8;
+}
+
+message GetAgentRequest {
+  RequestContext context = 1;
+  string id = 2;
+}
+
+message DeleteAgentRequest {
+  RequestContext context = 1;
+  string id = 2;
+}
+
+message ListAgentsRequest {
+  RequestContext context = 1;
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+}
+
+// ============================================
+// CONVERSATION MESSAGES
+// ============================================
+
+message Conversation {
+  string id = 1;
+  string agent_id = 2;
+  string user_id = 3;
+  string organization_id = 4;
+  optional string title = 5;
+  string status = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  optional Agent agent = 9;
+}
+
+message CreateConversationRequest {
+  RequestContext context = 1;
+  string agent_id = 2;
+  optional string title = 3;
+}
+
+message GetConversationRequest {
+  RequestContext context = 1;
+  string id = 2;
+}
+
+message ListConversationsRequest {
+  RequestContext context = 1;
+}
+
+message ListConversationsResponse {
+  repeated Conversation conversations = 1;
+}
+
+// ============================================
+// MESSAGE MESSAGES
+// ============================================
+
+message ChatMessage {
+  string id = 1;
+  string conversation_id = 2;
+  string role = 3;  // user | assistant | system
+  string content = 4;
+  optional MessageMetadata metadata = 5;
+  string created_at = 6;
+}
+
+message MessageMetadata {
+  string model = 1;
+  int32 tokens_used = 2;
+  int32 latency_ms = 3;
+}
+
+message GetMessagesRequest {
+  RequestContext context = 1;
+  string conversation_id = 2;
+  optional int32 limit = 3;
+  optional string before_id = 4;
+}
+
+message GetMessagesResponse {
+  repeated ChatMessage messages = 1;
+  bool has_more = 2;
+  optional string next_cursor = 3;
+}
+
+message SendMessageRequest {
+  RequestContext context = 1;
+  string conversation_id = 2;
+  string content = 3;
+}
+
+message SendMessageResponse {
+  ChatMessage user_message = 1;
+  ChatMessage assistant_message = 2;
+}
+
+// ============================================
+// STREAMING CHAT
+// ============================================
+
+message ChatStreamRequest {
+  RequestContext context = 1;
+  string conversation_id = 2;
+  string content = 3;
+}
+
+message ChatStreamResponse {
+  oneof event {
+    ChatStreamStart start = 1;
+    ChatStreamToken token = 2;
+    ChatStreamDone done = 3;
+    ChatStreamError error = 4;
+  }
+}
+
+message ChatStreamStart {
+  string conversation_id = 1;
+  string message_id = 2;
+}
+
+message ChatStreamToken {
+  string content = 1;
+}
+
+message ChatStreamDone {
+  string model = 1;
+  int32 tokens_used = 2;
+  int32 latency_ms = 3;
+  ChatMessage full_message = 4;
+}
+
+message ChatStreamError {
+  string code = 1;
+  string message = 2;
+}
+
+// ============================================
+// SERVICES
+// ============================================
+
+service AgentsService {
+  // Agent CRUD
+  rpc CreateAgent(CreateAgentRequest) returns (Agent);
+  rpc GetAgent(GetAgentRequest) returns (Agent);
+  rpc UpdateAgent(UpdateAgentRequest) returns (Agent);
+  rpc DeleteAgent(DeleteAgentRequest) returns (Agent);
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+  // Conversations
+  rpc CreateConversation(CreateConversationRequest) returns (Conversation);
+  rpc GetConversation(GetConversationRequest) returns (Conversation);
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+
+  // Messages
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  // Streaming Chat (Server streaming)
+  rpc StreamChat(ChatStreamRequest) returns (stream ChatStreamResponse);
+}
