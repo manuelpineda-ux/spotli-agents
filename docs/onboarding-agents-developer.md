@@ -2,6 +2,24 @@
 
 Bienvenido al equipo de Spotli.ai. Este documento te guiará en el setup del servicio de Agentes IA.
 
+---
+
+## Checklist de Setup
+
+```markdown
+1. [ ] Clonar: git clone git@github.com:manuelpineda-ux/spotli-agents.git
+2. [ ] Instalar: pnpm install
+3. [ ] Configurar: cp .env.example .env
+4. [ ] Agregar INTERNAL_API_KEY al .env (pedir al equipo)
+5. [ ] Probar HTTP: DUMMY_MODE=true pnpm start:dev
+6. [ ] Verificar HTTP: curl http://localhost:3002/v1/health
+7. [ ] Verificar gRPC: node scripts/test-grpc.js
+8. [ ] Leer spec: specs/features/F300-agents.md
+9. [ ] Leer ADRs: specs/architecture/adr/
+```
+
+---
+
 ## Antes de Empezar: Spec-Kit Workflow
 
 **IMPORTANTE:** En este proyecto usamos "spec first, code second". Lee primero:

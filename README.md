@@ -38,11 +38,28 @@ pnpm install
 
 # 2. Configurar
 cp .env.example .env
-# Editar .env con tus valores
+# Editar .env: agregar INTERNAL_API_KEY (pedir al equipo)
 
 # 3. Iniciar (modo dummy para desarrollo)
 DUMMY_MODE=true pnpm start:dev
+
+# 4. Verificar HTTP
+curl http://localhost:3002/v1/health
+
+# 5. Verificar gRPC
+node scripts/test-grpc.js
 ```
+
+### Checklist de Setup
+
+- [ ] Clonar repositorio
+- [ ] `pnpm install`
+- [ ] Configurar `.env` con `INTERNAL_API_KEY`
+- [ ] Probar con `DUMMY_MODE=true pnpm start:dev`
+- [ ] Verificar HTTP: `curl http://localhost:3002/v1/health`
+- [ ] Verificar gRPC: `node scripts/test-grpc.js`
+- [ ] Leer spec: `specs/features/F300-agents.md`
+- [ ] Leer onboarding: `docs/onboarding-agents-developer.md`
 
 ---
 
