@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { DummyModeInterceptor } from './common/interceptors/dummy-mode.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -8,6 +9,9 @@ async function bootstrap() {
 
   // Global prefix for all routes
   app.setGlobalPrefix('v1');
+
+  // Dummy mode interceptor for parallel development
+  app.useGlobalInterceptors(new DummyModeInterceptor());
 
   // Global validation pipe
   app.useGlobalPipes(
