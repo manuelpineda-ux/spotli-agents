@@ -155,7 +155,7 @@ Nuestro Cold Brew está listo para ser tu mejor aliado este verano. Preparado co
 interface RouteHandler {
   method: string;
   pattern: RegExp;
-  handler: (matches: RegExpMatchArray, body?: unknown) => unknown;
+  handler: (matches: RegExpMatchArray, body?: Record<string, unknown>) => unknown;
 }
 
 const routes: RouteHandler[] = [
@@ -311,14 +311,14 @@ const routes: RouteHandler[] = [
 export function getMockResponse(
   method: string,
   path: string,
-  body?: unknown,
+  body?: Record<string, unknown>,
 ): unknown | null {
   for (const route of routes) {
     if (route.method !== method) continue;
 
     const matches = path.match(route.pattern);
     if (matches) {
-      return route.handler(matches, body as Record<string, unknown>);
+      return route.handler(matches, body);
     }
   }
 

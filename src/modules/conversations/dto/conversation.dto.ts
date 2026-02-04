@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsUUID, MinLength, MaxLength } from 'class-valida
 
 export class CreateConversationDto {
   @IsUUID()
-  agentId: string;
+  agentId!: string;
 
   @IsOptional()
   @IsString()
@@ -14,5 +14,5 @@ export class SendMessageDto {
   @IsString()
   @MinLength(1)
   @MaxLength(10000)
-  content: string;
+  content!: string;
 }
