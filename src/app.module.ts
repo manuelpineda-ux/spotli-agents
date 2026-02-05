@@ -5,6 +5,7 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { GrpcModule } from './modules/grpc/grpc.module';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { LlmModule } from './modules/llm/llm.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     AgentsModule,
     ConversationsModule,
     GrpcModule,
+    LlmModule,
   ],
 })
 export class AppModule {}

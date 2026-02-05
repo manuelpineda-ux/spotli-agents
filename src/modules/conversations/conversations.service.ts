@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Observable, of } from 'rxjs';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AgentsService } from '../agents/agents.service';
+import { LlmService } from '../llm/llm.service';
 import { CreateConversationDto, SendMessageDto } from './dto/conversation.dto';
 
 @Injectable()
 export class ConversationsService {
+  private readonly logger = new Logger(ConversationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly agentsService: AgentsService,
+    private readonly llmService: LlmService,
   ) {}
 
   async create(
@@ -92,16 +96,48 @@ export class ConversationsService {
       },
     });
 
-    // TODO: Call LLM service to generate response
-    // For now, return a placeholder response
+    // Build conversation history for context
+    const messages = await this.prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+    });
+
+    const conversationHistory = messages
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+
+    // Build system prompt from agent configuration
+    const systemPrompt = this.buildSystemPrompt(conversation.agent);
+
+    // Generate LLM response
+    let llmResponse;
+    try {
+      llmResponse = await this.llmService.generateResponseSync(
+        conversationHistory,
+        systemPrompt,
+        { temperature: 0.7, maxTokens: 1024 },
+      );
+    } catch (error) {
+      this.logger.error('LLM generation failed', error);
+      llmResponse = {
+        content: 'I apologize, but I am temporarily unable to respond. Please try again.',
+        tokensUsed: 0,
+        model: 'fallback',
+        latencyMs: 0,
+      };
+    }
+
+    // Save assistant message
     const assistantMessage = await this.prisma.message.create({
       data: {
         conversationId,
         role: 'assistant',
-        content: `[LLM Integration Pending] Received: "${dto.content}"`,
+        content: llmResponse.content,
         metadata: {
-          model: 'placeholder',
-          tokens: 0,
+          model: llmResponse.model,
+          tokens: llmResponse.tokensUsed,
+          latencyMs: llmResponse.latencyMs,
         },
       },
     });
@@ -118,21 +154,115 @@ export class ConversationsService {
     };
   }
 
+  private buildSystemPrompt(agent: {
+    name: string;
+    personality?: string | null;
+    systemPrompt?: string | null;
+  }): string {
+    const parts: string[] = [];
+    parts.push(`You are ${agent.name}, an AI assistant for marketing and customer engagement.`);
+    if (agent.personality) parts.push(`Your personality: ${agent.personality}`);
+    if (agent.systemPrompt) parts.push(`Instructions: ${agent.systemPrompt}`);
+    parts.push('Be helpful, professional, and friendly. Keep responses concise but informative.');
+    return parts.join('\n\n');
+  }
+
   /**
    * Stream response using SSE
-   * TODO: Implement actual LLM streaming when integration is ready
    */
   streamResponse(
     conversationId: string,
     userId: string,
     organizationId: string,
   ): Observable<MessageEvent> {
-    // Placeholder - will implement actual streaming later
-    return of({
-      data: JSON.stringify({
-        type: 'info',
-        message: 'Streaming not yet implemented',
-      }),
-    } as MessageEvent);
+    const subject = new Subject<MessageEvent>();
+    this.executeStreamResponse(conversationId, userId, organizationId, subject);
+    return subject.asObservable();
+  }
+
+  private async executeStreamResponse(
+    conversationId: string,
+    userId: string,
+    organizationId: string,
+    subject: Subject<MessageEvent>,
+  ): Promise<void> {
+    try {
+      const conversation = await this.findOne(conversationId, userId, organizationId);
+
+      const latestMessage = await this.prisma.message.findFirst({
+        where: { conversationId, role: 'user' },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!latestMessage) {
+        subject.next({ data: JSON.stringify({ type: 'error', message: 'No message to respond to' }) } as MessageEvent);
+        subject.complete();
+        return;
+      }
+
+      const messages = await this.prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      });
+
+      const conversationHistory = messages
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n');
+
+      const systemPrompt = this.buildSystemPrompt(conversation.agent);
+
+      // Send start event
+      subject.next({ data: JSON.stringify({ type: 'start', conversationId }) } as MessageEvent);
+
+      let fullContent = '';
+      const startTime = Date.now();
+
+      for await (const chunk of this.llmService.generateResponse(
+        conversationHistory,
+        systemPrompt,
+        { temperature: 0.7, maxTokens: 1024 },
+      )) {
+        fullContent += chunk;
+        subject.next({ data: JSON.stringify({ type: 'token', content: chunk }) } as MessageEvent);
+      }
+
+      const latencyMs = Date.now() - startTime;
+
+      // Save assistant message
+      const assistantMessage = await this.prisma.message.create({
+        data: {
+          conversationId,
+          role: 'assistant',
+          content: fullContent,
+          metadata: {
+            model: 'gemini-1.5-flash',
+            tokens: this.llmService.countTokens(fullContent),
+            latencyMs,
+            streamed: true,
+          },
+        },
+      });
+
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
+
+      subject.next({
+        data: JSON.stringify({
+          type: 'done',
+          messageId: assistantMessage.id,
+          tokensUsed: this.llmService.countTokens(fullContent),
+          latencyMs,
+        }),
+      } as MessageEvent);
+
+      subject.complete();
+    } catch (error) {
+      this.logger.error('Streaming response failed', error);
+      subject.next({ data: JSON.stringify({ type: 'error', message: 'Failed to generate response' }) } as MessageEvent);
+      subject.complete();
+    }
   }
 }
